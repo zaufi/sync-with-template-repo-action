@@ -1,0 +1,39 @@
+# SPDX-FileCopyrightText: Alex Turbov <zaufi@pm.me>
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+name: Sync with template repo
+description: Try to receive changes from a template repository given as `url` parameter.
+branding:
+  icon: refresh-cw
+  color: green
+
+inputs:
+  config:
+    description: Path to configuration file
+    required: true
+    default: .github/sync-with-template-repo.yaml
+
+  token:
+    description: PAT with repository scope (https://github.com/settings/tokens)
+    required: false
+
+runs:
+  using: composite
+  steps:
+    - name: Get configuration
+      id: cfg
+      shell: bash
+      run: $GITHUB_ACTION_PATH/scripts/read-config.sh "${{ inputs.config }}"
+
+    - name: Clone template repo
+      uses: actions/checkout@v5
+      with:
+        repository: ${{ steps.cfg.outputs.repository }}
+        ref: ${{ steps.cfg.outputs.branch }}
+        token: ${{ inputs.token }}
+        fetch-depth: 0
+        path: ${{ steps.cfg.outputs.template_repo_path }}
+
+    - name: Receive changes
+      shell: bash
+      run: $GITHUB_ACTION_PATH/scripts/run.sh -c "${{ inputs.config }}" "${{ steps.cfg.outputs.template_repo_path }}"

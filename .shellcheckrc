@@ -1,0 +1,7 @@
+# SPDX-FileCopyrightText: Alex Turbov <zaufi@pm.me>
+# SPDX-License-Identifier: CC0-1.0
+
+# SC2155 (warning): Declare and assign separately to avoid masking return values.
+disable=SC2155
+
+# kate: hl ini;
