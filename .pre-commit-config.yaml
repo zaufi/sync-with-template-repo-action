@@ -1,0 +1,76 @@
+# SPDX-FileCopyrightText: Alex Turbov <zaufi@pm.me>
+# SPDX-License-Identifier: CC0-1.0
+#
+# Read the docs here: https://pre-commit.com
+#
+# Install hooks to your Git repo clone:
+#   $ pre-commit install
+#
+# List of available hooks: https://pre-commit.com/hooks.html
+#
+
+default_stages: [pre-commit]
+default_install_hook_types: &all [commit-msg, pre-commit]
+fail_fast: false
+
+repos:
+  - repo: meta
+    hooks:
+      - id: check-hooks-apply
+      - id: check-useless-excludes
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-case-conflict
+      - id: check-executables-have-shebangs
+        always_run: true
+      - id: check-toml
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+      - id: trailing-whitespace
+
+  - repo: https://github.com/jumanjihouse/pre-commit-hooks
+    rev: 3.0.0
+    hooks:
+      - id: git-check
+        pass_filenames: false
+
+    # NOTE Read the configuration docs here: http://jorisroovers.github.io/gitlint
+    # NOTE Read the "Conventional Commits" Specification here:
+    # https://www.conventionalcommits.org/en/v1.0.0/#summary
+  - repo: https://github.com/jorisroovers/gitlint
+    rev: v0.19.1
+    hooks:
+      - id: gitlint
+        stages: [commit-msg]
+
+    # NOTE For config options check this: https://editorconfig-checker.github.io
+  - repo: https://github.com/editorconfig-checker/editorconfig-checker
+    rev: v3.4.1
+    hooks:
+      - id: editorconfig-checker
+
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.4.1
+    hooks:
+      - id: codespell
+        stages: *all
+
+    # NOTE See BUG https://github.com/crate-ci/typos/issues/390
+  - repo: https://github.com/adhtruong/mirrors-typos
+    rev: v1.39.0
+    hooks:
+      - id: typos
+        stages: *all
+
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.45.0
+    hooks:
+      - id: markdownlint
+
+  - repo: https://github.com/fsfe/reuse-tool
+    rev: v6.2.0
+    hooks:
+      - id: reuse
