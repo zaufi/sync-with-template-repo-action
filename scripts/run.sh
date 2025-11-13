@@ -8,10 +8,24 @@ function error()
 {
     local -r message="$1"
     local -r file="$2"
-    if [[ ${CI:-''} == '' ]]; then
-        echo "❌ $message ($file)" >&2
+
+    if [[ -z ${CI:-''} ]]; then
+        echo "❌ $message${file:+ ($file)}" >&2
     else
         echo "::error ${file:+file=${file}::}$message"
+    fi
+}
+
+function notice()
+{
+    local -r title="$1"
+    local -r message="$2"
+    local -r file="${3:-}"
+
+    if [[ -z ${CI:-''} ]]; then
+        echo "ℹ️ ${title:+$title: }$message${file:+ ($file)}"
+    else
+        echo "::notice ${title:+title=$title::}${file:+file=$file::}$message"
     fi
 }
 
@@ -121,7 +135,7 @@ if [[
     $(git -C "$template_repo_path" rev-parse --short HEAD) == "$since"
   || $(git -C "$template_repo_path" rev-parse HEAD) == "$since"
   ]]; then
-    echo "::notice title=No changes since last check::$since is actually the HEAD"
+    notice 'No changes since last check' "$since is actually the HEAD"
     exit 0
 fi
 
@@ -141,14 +155,14 @@ declare -A cant_apply=()
 for file in "${common_files[@]}"; do
     # First of all, check if the files are ever different
     if [[ -f $file ]] && diff -q "$file" "$template_repo_path/$file" >/dev/null; then
-        echo "::notice file=${file}::title=Same::File has no differences"
+        notice Same 'File has no differences' "$file"
         continue
     fi
 
     # Are there any changes in the file since the last check?
     diff="$(git -C "$template_repo_path" --no-pager diff "$since"..HEAD -- "$file")"
     if [[ -z $diff ]]; then
-        echo "::notice file=${file}::title=Same::File has no changes"
+        notice Same 'File has no changes' "$file"
         continue
     fi
 
@@ -156,8 +170,9 @@ for file in "${common_files[@]}"; do
 
     # Try to apply whatever can be applied and record rejects
     git apply --reject --recount --allow-empty <<<"$diff" || true
-    declare file_status="$(git status --porcelain=1 "$file")"
+
     # Check the file status
+    declare file_status="$(git status --porcelain=1 "$file")"
     if [[ $file_status == \ M\ * ]]; then
         # Temporarily commit applied changes if existed file
         # has been modified
@@ -194,12 +209,13 @@ for file in "${common_files[@]}"; do
 done
 
 if (( have_smth_2_sync == 0 )); then
-    echo '::notice title=Everything is up to date::This repository in sync with the specified template repository!'
+    notice 'Everything is up to date' 'This repository in sync with the specified template repository!'
     exit 0
 fi
 
+# No modified files in the repo means all of 'em was conflicts
 if [[ -z "$(git status --porcelain=1 --untracked-files=no .)" ]]; then
-    echo '::notice title=There are some pending changes::However, all of them require a manual merge!'
+    notice 'There are some pending changes' 'However, all of them require a manual merge!'
     exit 0
 fi
 
@@ -208,11 +224,11 @@ declare -rx last="$(git -C "$template_repo_path" rev-parse --short HEAD)"
 sed -Ei "/^last-sync:/ s,$since,$last," "$CONFIG"
 
 if (( make_pr == 0 )); then
-    echo '::notice title=There are some pending changes::However, making PR is not enabled!'
+    notice 'There are some pending changes' 'However, making PR is not enabled!'
     exit 0
 fi
 
-echo '::group::Preparing pull request'
+echo '::group::Preparing a pull request'
 
 # OK, there are some changes in this repo. Commit 'em into a new branch first.
 git switch -c "sync-with-template-repo-$(date +"%Y%m%d%H%M%S")"
