@@ -239,15 +239,16 @@ for file in "${common_files[@]}"; do
 done
 
 declare -rx repository="$(yq_get '.repository // ""')"
+declare -r _conflict_note_intro="There are some files have changed in the $repository repo."
 
 if (( have_smth_2_sync == 0 )); then
-    notice 'Up to date' "This repository in sync with the \`${repository}\` template repository!"
+    notice 'Up to date' "This repository is in sync with the \`${repository}\` repository!"
     exit 0
 fi
 
 # No modified files in the repo means all of 'em was conflicts
 if [[ -z "$(git status --porcelain=1 --untracked-files=no .)" ]]; then
-    notice 'No PR' 'There are some pending changes. However, all of them require a manual merge!'
+    notice 'No PR' "$_conflict_note_intro However, all of them require a manual merge!"
     report_conflicts cant_apply
     exit 0
 fi
@@ -257,7 +258,7 @@ declare -rx last="$(git -C "$template_repo_path" rev-parse --short HEAD)"
 sed -Ei "/^last-sync:/ s,$since,$last," "$CONFIG"
 
 if (( make_pr == 0 )); then
-    notice 'No PR' 'There are some pending changes. However, making PR is not enabled!'
+    notice 'No PR' "$_conflict_note_intro However, making PR is not enabled!"
     report_conflicts cant_apply
     exit 0
 fi
