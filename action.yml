@@ -13,6 +13,12 @@ inputs:
     required: true
     default: .github/sync-with-template-repo.yaml
 
+  make_pr:
+    description: Create a pull request if there are changes
+    required: false
+    type: boolean
+    default: false
+
   token:
     description: PAT with repository scope (https://github.com/settings/tokens)
     required: false
@@ -36,4 +42,8 @@ runs:
 
     - name: Receive changes
       shell: bash
-      run: $GITHUB_ACTION_PATH/scripts/run.sh -c "${{ inputs.config }}" "${{ steps.cfg.outputs.template_repo_path }}"
+      run: |
+        $GITHUB_ACTION_PATH/scripts/run.sh \
+          -c "${{ inputs.config }}" \
+          ${{ inputs.make_pr && '-p' || '' }} \
+          "${{ steps.cfg.outputs.template_repo_path }}"

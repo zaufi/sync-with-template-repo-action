@@ -25,14 +25,16 @@ function die()
 function usage()
 {
     cat >&2 <<USAGE
-Usage: ${0##*/} [-c <CONFIG-FILE>] <TEMPLATE-REPO-PATH>
+Usage: ${0##*/} [-c <CONFIG-FILE>] [-p] <TEMPLATE-REPO-PATH>
 
 Sync changes from a template repository into the current repository and open a PR.
 USAGE
 }
 
 declare CONFIG=.github/sync-with-template-repo.yaml
-while getopts ':c:h' opt; do
+declare -i make_pr=0
+
+while getopts ':c:ph' opt; do
   case "$opt" in
     c)
         CONFIG="$OPTARG"
@@ -43,6 +45,9 @@ while getopts ':c:h' opt; do
     h)
         usage
         exit 0
+        ;;
+    p)
+        make_pr=1
         ;;
     :)
         die "Option -$OPTARG requires an argument"
@@ -187,10 +192,15 @@ if (( have_smth_2_sync == 0 )); then
     exit 0
 fi
 
-echo '::group::Preparing pull request'
-
 declare -rx last="$(git -C "$template_repo_path" rev-parse --short HEAD)"
 sed -Ei "/^last-sync:/ s,$since,$last," "$CONFIG"
+
+if (( make_pr == 0 )); then
+    echo '::notice title=There are some changes::However, making PR is not enabled!'
+    exit 0
+fi
+
+echo '::group::Preparing pull request'
 
 # OK, there are some changes in this repo. Commit 'em into a new branch first.
 git switch -c "sync-with-template-repo-$(date +"%Y%m%d%H%M%S")"
