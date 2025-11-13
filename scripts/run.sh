@@ -146,7 +146,7 @@ for file in "${common_files[@]}"; do
     fi
 
     # Are there any changes in the file since the last check?
-    diff="$(git -C "$template_repo_path" diff "$since"..HEAD -- "$file")"
+    diff="$(git -C "$template_repo_path" --no-pager diff "$since"..HEAD -- "$file")"
     if [[ -z $diff ]]; then
         echo "::notice file=${file}::title=Same::File has no changes"
         continue
@@ -156,37 +156,37 @@ for file in "${common_files[@]}"; do
 
     # Try to apply whatever can be applied and record rejects
     git apply --reject --recount --allow-empty <<<"$diff" || true
-    declare file_status="$(git status --porcelain 1 "$file")"
+    declare file_status="$(git status --porcelain=1 "$file")"
     # Check the file status
     if [[ $file_status == \ M\ * ]]; then
         # Temporarily commit applied changes if existed file
         # has been modified
         git commit --no-verify -m "$TEMP_SAVE_COMMIT_MESSAGE" -- "$file"
 
-        # TODO Make sure the reject file wasn't here before? ;-)
-        # (i.e., in the repo %-)
-        if [[ -f "$file".rej ]]; then
-            # Huh, it seems there's a conflict...
-            git apply --3way --recount --allow-empty <<<"$diff" || true
-            # Record unsuccessful hunks
-            declare conflict_diff="$(git --no-pager diff --minimal "$file")"
-            if [[ -n $conflict_diff ]]; then
-                cant_apply[$file]="$conflict_diff"
-            fi
-            # Restore the original file
-            git restore --source HEAD --staged --worktree "$file"
-            # Remove the rejects file
-            rm -f -- "$file".rej
-        fi
-
-        # Restore applied changes if was modified at the first apply
-        if [[ $file_status == \ M\ * ]]; then
-            git reset HEAD^
-        fi
-
     # Maybe it's a new file (untracked yet)?
     elif [[ $file_status == \?\?\ * ]]; then
         git add "$file"
+    fi
+
+    # TODO Make sure the reject file wasn't here before? ;-)
+    # (i.e., in the repo %-)
+    if [[ -f "$file".rej ]]; then
+        # Huh, it seems there's a conflict...
+        git apply --3way --recount --allow-empty <<<"$diff" || true
+        # Record unsuccessful hunks
+        declare conflict_diff="$(git --no-pager diff --minimal "$file")"
+        if [[ -n $conflict_diff ]]; then
+            cant_apply[$file]="$conflict_diff"
+        fi
+        # Restore the original file
+        git restore --source HEAD --staged --worktree "$file"
+        # Remove the rejects file
+        rm -f -- "$file".rej
+    fi
+
+    # Restore applied changes if was modified at the first apply
+    if [[ $file_status == \ M\ * ]]; then
+        git reset HEAD^
     fi
 
     have_smth_2_sync=1
