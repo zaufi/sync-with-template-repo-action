@@ -4,6 +4,7 @@
 
 set -euo pipefail
 
+# BEGIN Helper functions
 function error()
 {
     local -r message="$1"
@@ -34,6 +35,15 @@ function die()
     error "$@"
     exit 1
 }
+
+function report_conflicts()
+{
+    local -rn dict_var="$1"
+    for file in "${!dict_var[@]}"; do
+        echo -e "::group Conflict in \`$file\`\n${dict_var[$file]}\n::endgroup"
+    done
+}
+# END Helper functions
 
 # BEGIN Handle arguments
 function usage()
@@ -218,6 +228,7 @@ fi
 # No modified files in the repo means all of 'em was conflicts
 if [[ -z "$(git status --porcelain=1 --untracked-files=no .)" ]]; then
     notice 'No PR' 'There are some pending changes. However, all of them require a manual merge!'
+    report_conflicts cant_apply
     exit 0
 fi
 
@@ -227,6 +238,7 @@ sed -Ei "/^last-sync:/ s,$since,$last," "$CONFIG"
 
 if (( make_pr == 0 )); then
     notice 'No PR' 'There are some pending changes. However, making PR is not enabled!'
+    report_conflicts cant_apply
     exit 0
 fi
 
