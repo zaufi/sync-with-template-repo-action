@@ -7,7 +7,7 @@ set -euo pipefail
 function error()
 {
     local -r message="$1"
-    local -r file="$2"
+    local -r file="${2:-}"
 
     if [[ -z ${CI:-''} ]]; then
         echo "❌ $message${file:+ ($file)}" >&2
@@ -25,7 +25,7 @@ function notice()
     if [[ -z ${CI:-''} ]]; then
         echo "ℹ️ ${title:+$title: }$message${file:+ ($file)}"
     else
-        echo "::notice ${title:+title=$title::}${file:+file=$file::}$message"
+        echo "::notice ${file:+file=$file,}${title:+title=$title::}$message"
     fi
 }
 
