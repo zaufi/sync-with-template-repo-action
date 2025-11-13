@@ -186,17 +186,22 @@ for file in "${common_files[@]}"; do
     echo '::endgroup::'
 done
 
-# Change the `last-sync` key in the config file
 if (( have_smth_2_sync == 0 )); then
     echo '::notice title=Everything is up to date::This repository in sync with the specified template repository!'
     exit 0
 fi
 
+if [[ -z "$(git status --porcelain=1 --untracked-files=no .)" ]]; then
+    echo '::notice title=There are some pending changes::However, all of them require a manual merge!'
+    exit 0
+fi
+
+# Change the `last-sync` key in the config file
 declare -rx last="$(git -C "$template_repo_path" rev-parse --short HEAD)"
 sed -Ei "/^last-sync:/ s,$since,$last," "$CONFIG"
 
 if (( make_pr == 0 )); then
-    echo '::notice title=There are some changes::However, making PR is not enabled!'
+    echo '::notice title=There are some pending changes::However, making PR is not enabled!'
     exit 0
 fi
 
@@ -221,7 +226,7 @@ declare -ir pr_id="$(gh pr view --json number -q .number)"
 # Leave a comment if there are unmerged files
 if [[ ${#cant_apply[@]} -ne 0 ]]; then
     {
-        echo ':robot: However, the following file(s) require manual merge:'
+        echo ':robot: However, the following file(s) require a manual merge:'
         for file in "${!cant_apply[@]}"; do
             echo "### \`${file}\`"
             echo '```diff'
