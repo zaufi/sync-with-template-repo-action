@@ -155,18 +155,18 @@ declare -A cant_apply=()
 for file in "${common_files[@]}"; do
     # First of all, check if the files are ever different
     if [[ -f $file ]] && diff -q "$file" "$template_repo_path/$file" >/dev/null; then
-        notice Same 'File has no differences' "$file"
+        echo "File \`$file\` has no differences"
         continue
     fi
 
     # Are there any changes in the file since the last check?
     diff="$(git -C "$template_repo_path" --no-pager diff "$since"..HEAD -- "$file")"
     if [[ -z $diff ]]; then
-        notice Same 'File has no changes' "$file"
+        echo "File \`$file\` has no changes"
         continue
     fi
 
-    echo "::group::Try to apply changes to $file"
+    echo "::group::Try to apply changes to \`$file\`"
 
     # Try to apply whatever can be applied and record rejects
     git apply --reject --recount --allow-empty <<<"$diff" || true
@@ -208,14 +208,16 @@ for file in "${common_files[@]}"; do
     echo '::endgroup::'
 done
 
+declare -rx repository="$(yq_get '.repository // ""')"
+
 if (( have_smth_2_sync == 0 )); then
-    notice 'Everything is up to date' 'This repository in sync with the specified template repository!'
+    notice 'Up to date' "This repository in sync with the \`${repository}\` template repository!"
     exit 0
 fi
 
 # No modified files in the repo means all of 'em was conflicts
 if [[ -z "$(git status --porcelain=1 --untracked-files=no .)" ]]; then
-    notice 'There are some pending changes' 'However, all of them require a manual merge!'
+    notice 'No PR' 'There are some pending changes. However, all of them require a manual merge!'
     exit 0
 fi
 
@@ -224,7 +226,7 @@ declare -rx last="$(git -C "$template_repo_path" rev-parse --short HEAD)"
 sed -Ei "/^last-sync:/ s,$since,$last," "$CONFIG"
 
 if (( make_pr == 0 )); then
-    notice 'There are some pending changes' 'However, making PR is not enabled!'
+    notice 'No PR' 'There are some pending changes. However, making PR is not enabled!'
     exit 0
 fi
 
@@ -233,8 +235,6 @@ echo '::group::Preparing a pull request'
 # OK, there are some changes in this repo. Commit 'em into a new branch first.
 git switch -c "sync-with-template-repo-$(date +"%Y%m%d%H%M%S")"
 
-# NOTE This variable is used in templates!
-declare -rx repository="$(yq_get '.repository // ""')"
 yq_get '.commit-message // env(DEFAULT_COMMIT_TITLE)' | git commit --no-verify -a -F -
 
 git push -u origin HEAD
