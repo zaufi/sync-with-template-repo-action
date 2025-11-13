@@ -26,13 +26,12 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Get configuration
-      id: cfg
+    - id: cfg
       shell: bash
-      run: $GITHUB_ACTION_PATH/scripts/read-config.sh "${{ inputs.config }}"
+      run: |
+        $GITHUB_ACTION_PATH/scripts/read-config.sh "${{ inputs.config }}"
 
-    - name: Clone template repo
-      uses: actions/checkout@v5
+    - uses: actions/checkout@v5
       with:
         repository: ${{ steps.cfg.outputs.repository }}
         ref: ${{ steps.cfg.outputs.branch }}
@@ -40,8 +39,7 @@ runs:
         fetch-depth: 0
         path: ${{ steps.cfg.outputs.template_repo_path }}
 
-    - name: Receive changes
-      shell: bash
+    - shell: bash
       run: |
         $GITHUB_ACTION_PATH/scripts/run.sh \
           -c "${{ inputs.config }}" \
