@@ -30,6 +30,24 @@ function notice()
     fi
 }
 
+function start_group()
+{
+    if [[ -z ${CI:-''} ]]; then
+        echo -e "\033[1;3m▶▶▶ BEGIN: $*\033[0m"
+    else
+        echo "::group::$*"
+    fi
+}
+
+function end_group()
+{
+    if [[ -z ${CI:-''} ]]; then
+        echo -e '\033[1;3m◀◀◀ END\033[0m'
+    else
+        echo '::endgroup::'
+    fi
+}
+
 function die()
 {
     error "$@"
@@ -40,7 +58,9 @@ function report_conflicts()
 {
     local -rn dict_var="$1"
     for file in "${!dict_var[@]}"; do
-        echo -e "::group Conflict in \`$file\`\n${dict_var[$file]}\n::endgroup"
+        start_group "Conflict in \`$file\`"
+        echo -e "${dict_var[$file]}"
+        end_group
     done
 }
 # END Helper functions
@@ -176,7 +196,7 @@ for file in "${common_files[@]}"; do
         continue
     fi
 
-    echo "::group::Try to apply changes to \`$file\`"
+    start_group "Try to apply changes to \`$file\`"
 
     # Try to apply whatever can be applied and record rejects
     git apply --reject --recount --allow-empty <<<"$diff" || true
@@ -215,7 +235,7 @@ for file in "${common_files[@]}"; do
     fi
 
     have_smth_2_sync=1
-    echo '::endgroup::'
+    end_group
 done
 
 declare -rx repository="$(yq_get '.repository // ""')"
@@ -242,7 +262,7 @@ if (( make_pr == 0 )); then
     exit 0
 fi
 
-echo '::group::Preparing a pull request'
+start_group 'Preparing a pull request'
 
 # OK, there are some changes in this repo. Commit 'em into a new branch first.
 git switch -c "sync-with-template-repo-$(date +"%Y%m%d%H%M%S")"
@@ -271,4 +291,4 @@ if [[ ${#cant_apply[@]} -ne 0 ]]; then
     } | gh pr comment "$pr_id" --body-file -
 fi
 
-echo '::endgroup::'
+end_group
