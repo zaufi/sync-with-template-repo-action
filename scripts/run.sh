@@ -125,7 +125,8 @@ if [[
     exit 0
 fi
 
-# Find common files among two repos excluding unneeded...
+# Find common files among two repos excluding unneeded
+# but include that come from a template repo...
 declare -a common_files
 mapfile -t common_files < <( \
     comm -2 \
@@ -139,7 +140,7 @@ declare -i have_smth_2_sync=0
 declare -A cant_apply=()
 for file in "${common_files[@]}"; do
     # First of all, check if the files are ever different
-    if diff -q "$file" "$template_repo_path/$file" >/dev/null; then
+    if [[ -f $file ]] && diff -q "$file" "$template_repo_path/$file" >/dev/null; then
         echo "::notice file=${file}::title=Same::File has no differences"
         continue
     fi
@@ -156,30 +157,36 @@ for file in "${common_files[@]}"; do
     # Try to apply whatever can be applied and record rejects
     git apply --reject --recount --allow-empty <<<"$diff" || true
     declare file_status="$(git status --porcelain 1 "$file")"
-
-    # Temporarily commit applied changes if modified
-    if [[ -n $file_status ]]; then
+    # Check the file status
+    if [[ $file_status == \ M\ * ]]; then
+        # Temporarily commit applied changes if existed file
+        # has been modified
         git commit --no-verify -m "$TEMP_SAVE_COMMIT_MESSAGE" -- "$file"
-    fi
 
-    # TODO Make sure it wasn't here before? ;-)
-    if [[ -f "$file".rej ]]; then
-        # Huh, it seems there's a conflict...
-        git apply --3way --recount --allow-empty <<<"$diff" || true
-        # Record unsuccessful hunks
-        declare conflict_diff="$(git --no-pager diff --minimal "$file")"
-        if [[ -n $conflict_diff ]]; then
-            cant_apply[$file]="$conflict_diff"
+        # TODO Make sure the reject file wasn't here before? ;-)
+        # (i.e., in the repo %-)
+        if [[ -f "$file".rej ]]; then
+            # Huh, it seems there's a conflict...
+            git apply --3way --recount --allow-empty <<<"$diff" || true
+            # Record unsuccessful hunks
+            declare conflict_diff="$(git --no-pager diff --minimal "$file")"
+            if [[ -n $conflict_diff ]]; then
+                cant_apply[$file]="$conflict_diff"
+            fi
+            # Restore the original file
+            git restore --source HEAD --staged --worktree "$file"
+            # Remove the rejects file
+            rm -f -- "$file".rej
         fi
-        # Restore the original file
-        git restore --source HEAD --staged --worktree "$file"
-        # Remove the rejects file
-        rm -f -- "$file".rej
-    fi
 
-    # Restore applied changes if was modified at the first apply
-    if [[ -n $file_status ]]; then
-        git reset HEAD^
+        # Restore applied changes if was modified at the first apply
+        if [[ $file_status == \ M\ * ]]; then
+            git reset HEAD^
+        fi
+
+    # Maybe it's a new file (untracked yet)?
+    elif [[ $file_status == \?\?\ * ]]; then
+        git add "$file"
     fi
 
     have_smth_2_sync=1
